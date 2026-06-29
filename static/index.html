@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>T4TSA App</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0a0a0a;
+    color: #fff;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  #site-frame {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    z-index: 1;
+    filter: brightness(0.85) saturate(1.1);
+    transition: filter 0.6s ease;
+  }
+  #site-frame.unlocked { filter: brightness(1) saturate(1); }
+  #overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    padding-top: max(20px, env(safe-area-inset-top));
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+    transition: opacity 0.6s ease, visibility 0.6s ease;
+  }
+  #overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+  .popup-box {
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 24px;
+    padding: 32px 26px;
+    max-width: 360px;
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    text-align: center;
+    animation: fadeScale 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    backdrop-filter: blur(20px) saturate(1.5);
+    -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  }
+  @keyframes fadeScale {
+    from { transform: scale(0.9) translateY(20px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
+  }
+  .popup-box .icon { font-size: 44px; margin-bottom: 12px; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3)); }
+  .popup-box h2 { font-size: 22px; margin-bottom: 8px; font-weight: 700; letter-spacing: -0.3px; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+  .popup-box p { color: rgba(255, 255, 255, 0.75); margin-bottom: 24px; font-size: 14px; line-height: 1.5; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+  .channel-btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; padding: 14px; margin-bottom: 10px;
+    background: rgba(229, 9, 20, 0.9); color: #fff;
+    text-decoration: none; border-radius: 14px;
+    font-weight: 600; font-size: 14.5px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer; transition: all 0.25s ease; backdrop-filter: blur(4px);
+  }
+  .channel-btn:active { transform: translateY(-1px); background: rgba(229, 9, 20, 1); box-shadow: 0 4px 16px rgba(229, 9, 20, 0.3); }
+  .channel-btn.secondary { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); }
+  .channel-btn.secondary:active { background: rgba(255, 255, 255, 0.14); box-shadow: 0 4px 16px rgba(255, 255, 255, 0.05); }
+  .check-btn {
+    width: 100%; padding: 15px;
+    background: rgba(40, 167, 69, 0.9); color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px; font-weight: 700; font-size: 15px;
+    margin-top: 6px; cursor: pointer; transition: all 0.25s ease; backdrop-filter: blur(4px);
+  }
+  .check-btn:active { background: rgba(40, 167, 69, 1); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(40, 167, 69, 0.3); }
+  .check-btn:disabled { background: rgba(80, 80, 80, 0.6); transform: none; box-shadow: none; cursor: not-allowed; }
+  #status { margin-top: 12px; color: #ff8585; font-size: 13px; min-height: 20px; text-shadow: 0 1px 2px rgba(0,0,0,0.3); cursor: pointer; }
+  #loader {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: #0a0a0a; z-index: 200;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 14px; transition: opacity 0.5s ease;
+  }
+  #loader.hidden { opacity: 0; pointer-events: none; }
+  .spinner { width: 42px; height: 42px; border: 3px solid rgba(255, 255, 255, 0.1); border-top-color: #e50914; border-radius: 50%; animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loader-text { color: rgba(255, 255, 255, 0.6); font-size: 14px; letter-spacing: 0.5px; }
+  .unlocked-glow { animation: glowPulse 1s ease; }
+  @keyframes glowPulse { 0% { filter: brightness(0.85); } 50% { filter: brightness(1.2); } 100% { filter: brightness(1); } }
+</style>
+</head>
+<body>
+
+  <iframe id="site-frame" src="https://www.t4tsa.cc/" allow="fullscreen"></iframe>
+
+  <div id="overlay">
+    <div class="popup-box">
+      <div class="icon">🔓</div>
+      <h2>Unlock Full Access</h2>
+      <p>Join the channels below to unlock all features and start streaming.</p>
+      <a href="https://t.me/SeriesBayX0" target="_blank" class="channel-btn">📢 Join @SeriesBayX0</a>
+      <a href="https://t.me/MugiwaraResearcher" target="_blank" class="channel-btn secondary">📢 Join @MugiwaraResearcher</a>
+      <button class="check-btn" id="checkBtn" onclick="verifyMembership()">✅ I've Joined, Unlock</button>
+      <p id="status" onclick="verifyMembership()"></p>
+    </div>
+  </div>
+
+  <div id="loader">
+    <div class="spinner"></div>
+    <p class="loader-text">Loading T4TSA...</p>
+  </div>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    tg.ready();
+
+    const BOT_API_URL = '/api/check';
+    let userId = null;
+
+    async function init() {
+      if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        userId = tg.initDataUnsafe.user.id;
+        await verifyMembership();
+      } else {
+        document.getElementById('loader').classList.add('hidden');
+        document.getElementById('status').textContent = 'Open this inside Telegram';
+      }
+    }
+
+    async function verifyMembership() {
+      const btn = document.getElementById('checkBtn');
+      const status = document.getElementById('status');
+      const loader = document.getElementById('loader');
+      const overlay = document.getElementById('overlay');
+      const iframe = document.getElementById('site-frame');
+
+      btn.disabled = true;
+      btn.textContent = 'Checking...';
+      status.textContent = '';
+
+      try {
+        const response = await fetch(`${BOT_API_URL}?user_id=${userId}`);
+        const data = await response.json();
+
+        loader.classList.add('hidden');
+
+        if (data.joined === true) {
+          overlay.classList.add('hidden');
+          iframe.classList.add('unlocked', 'unlocked-glow');
+        } else {
+          status.textContent = 'Please join @MugiwaraResearcher, then tap to retry.';
+        }
+      } catch (err) {
+        loader.classList.add('hidden');
+        status.textContent = 'Connection error — tap to retry.';
+        console.error(err);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "✅ I've Joined, Unlock";
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

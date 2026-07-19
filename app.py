@@ -2,6 +2,7 @@ import os
 import logging
 
 import requests
+
 from flask import Flask, request, jsonify, send_from_directory, abort
 
 logging.basicConfig(level=logging.INFO)
@@ -84,7 +85,7 @@ def webhook():
         chat_id = msg["chat"]["id"]
         keyboard = {
             "inline_keyboard": [[
-                {"text": "🎬 Open T4TSA App", "web_app": {"url": WEB_APP_URL}}
+                {"text": "🎬 Open PhoneFilm App", "web_app": {"url": WEB_APP_URL}}
             ]]
         }
         try:
